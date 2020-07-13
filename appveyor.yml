@@ -1,0 +1,135 @@
+# https://travis-ci.org/github/mmcc007/test_emulators/jobs/621310460/config
+# https://travis-ci.org/github/mmcc007/test_emulators/jobs/621310460
+# Notes:
+#   - Minimal appveyor.yml file is an empty file. All sections are optional.
+#   - Indent each level of configuration with 2 spaces. Do not use tabs!
+#   - All section names are case-sensitive.
+#   - Section names should be unique on each level.
+
+#---------------------------------#
+#      general configuration      #
+#---------------------------------#
+
+# version format
+#version: {branch}-{build}
+
+# you can use {branch} name in version format too
+# version: 1.0.{build}-{branch}
+
+# branches to build
+branches:
+  # whitelist
+  # TODO: Extend to other branches
+  only:
+    - master
+
+# Do not build on tags, because we tag the release from Appveyor, no need to rebuild
+skip_tags: true
+
+## Skipping commits with particular message or from specific user
+#skip_commits:
+#  message: /Created.*\.(png|jpg|jpeg|bmp|gif)/      # Regex for matching commit message
+#  author: John                                      # Commit author's username, name, email or regexp maching one of these.
+#
+## Including commits with particular message or from specific user
+#only_commits:
+#  message: /build/                # Start a new build if message contains 'build'
+#  author: jack@company.com        # Start a new build for commit of user with email jack@company.com
+
+environment:
+  ANDROID_PLATFORM_SDK: 28
+  ABI: x86
+  GOO: default
+  APPVEYOR_SSH_KEY: ssh-rsa AAAAB3NzaC1yc2EAAAADAQABAAACAQCZhlFOucJXO3TMAD0sVDBPkGWHxa7bQTphdWj1eWtEAk8Zx5LWzYEJVmA8a0OYZvb8+8k/3WwTZHmk9PrhXJ1017mFusBvboD5vMJ24nXFeCYZ4jKo8HhG+UKpWgbxeYUtY6CdCx+2rGsbABhY+TdEbqC6TnoGJ8/wcZ9hCYW/wKuUCf5E0IBJusObJeGdFyR43qhxo88DFYKXJUPZmnaqEYmabGNEv7d2ch5Gy3XjiycSwAyAQreKMH3IcX4bUhb6c47K8j5qtWlIRyFrFJ9Wlymd3z54FQCLQA6HYC5Oossr9Qk2R6PCP19H6ZKzOjWFxiByn7TY6i1hPcY4+1mYqDPaHysLcAiTbZzQAhCUhxnUQWYj05HznBkRt1IAgEU7Zz4c7Gq0rMuDz7xcVlZOjmb8gtyI1JJgzw77dzl5fCt8A5oiwAC0mNehA6iFzsOGXiIVbxWJxThRAKSuiMSEJ3Hpsf6X+relEqjP9W12BilUmrnZYEuRoFvzqk55DoGgpXIFiF82QHrvuMv3TTk/6XaBsW8cxIioqfvv3VLrjS7KNRgngQinV+DxwIkIhLOT4N+FSK3tkLf6YnQTOj3XCKMxNVRqYbUKMVeYiMtTWHdNM+XQYAZEDBSE6aW/ggpj9YNWnFo3VDKyNI2WYVapQ4o3RIcP8VqVMPVhr8lcAw== public@thomas.cave.dev
+  matrix:
+
+    #---------------------------------#
+    #            e2e tests            #
+    #          with screenshots       #
+    #---------------------------------#
+
+    - job_name: Test Android
+      job_group: E2E Tests
+      appveyor_build_worker_image: Ubuntu2004
+      SDK_TOOLS_VERSION: commandlinetools-linux-6609375_latest.zip
+      ANDROID_SDK_ROOT: /home/appveyor/android/sdk
+      EMULATOR_NAME: NEXUS_6P_API_29
+      AVD_CONFIG: /home/appveyor/android/avd/${EMULATOR_NAME}.avd/config.ini
+
+    - job_name: Test iOS
+      job_group: E2E Tests
+      appveyor_build_worker_image: macos
+      SDK_TOOLS_VERSION: commandlinetools-mac-6609375_latest.zip
+      ANDROID_SDK_ROOT: /Users/appveyor/android/sdk
+      JAVA_HOME_8_X64: /Library/Java/JavaVirtualMachines/adoptopenjdk-8.jdk/Contents/Home
+
+#---------------------------------#
+#     Common Install (Flutter)    #
+#---------------------------------#
+install:
+  #- curl -sflL 'https://raw.githubusercontent.com/appveyor/ci/master/scripts/enable-ssh.sh' | bash -e -
+  #- sleep 60m
+  - export JAVA_HOME=${JAVA_HOME_8_X64}
+  - java -version
+  - export JAVA_HOME=${JAVA_HOME_8_X64}
+  - curl -o sdk-tools.zip https://dl.google.com/android/repository/${SDK_TOOLS_VERSION} && unzip sdk-tools.zip && rm sdk-tools.zip
+  - eval echo ~$USER
+  - mkdir -p $(eval echo ~$USER)/.android/ && mkdir -p $(eval echo ~$USER)/android/sdk && mv tools $(eval echo ~$USER)/android/sdk
+  - echo '### User Sources for Android SDK Manager' > $(eval echo ~$USER)/.android/repositories.cfg
+  - cd && git clone -b stable https://github.com/flutter/flutter.git
+  - export PATH=$PATH:$(eval echo ~$USER)/flutter/bin:$(eval echo ~$USER)/flutter/bin/cache/dark-sdk/bin:$ANDROID_SDK_ROOT/tools/bin
+
+# job-specific configurations
+for:
+
+  -
+    matrix:
+      only:
+        - job_name: Test Android
+#
+    install:
+      - export JAVA_HOME=${JAVA_HOME_8_X64}
+      - java -version
+      - export JAVA_HOME=${JAVA_HOME_8_X64}
+      - curl -o sdk-tools.zip https://dl.google.com/android/repository/${SDK_TOOLS_VERSION} && unzip sdk-tools.zip && rm sdk-tools.zip
+      - eval echo ~$USER
+      - mkdir -p $(eval echo ~$USER)/.android/ && mkdir -p $(eval echo ~$USER)/android/sdk && mv tools $(eval echo ~$USER)/android/sdk
+      - echo '### User Sources for Android SDK Manager' > $(eval echo ~$USER)/.android/repositories.cfg
+      - cd && git clone -b stable https://github.com/flutter/flutter.git
+      - export PATH=$PATH:$(eval echo ~$USER)/flutter/bin:$(eval echo ~$USER)/flutter/bin/cache/dark-sdk/bin:$ANDROID_SDK_ROOT/tools/bin
+      - yes | sdkmanager --verbose --sdk_root=${ANDROID_SDK_ROOT} --update
+      - yes | sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --licenses
+      - yes | sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --list
+      - sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --verbose "tools" "emulator" "platform-tools" "build-tools;30.0.0" "platforms;android-30" "system-images;android-${ANDROID_PLATFORM_SDK};${GOO};${ABI}"
+#      - flutter precache
+    test_script:
+      - flutter doctor -v
+      - echo no | avdmanager create avd --force -n $EMULATOR_NAME -k "system-images;android-${ANDROID_PLATFORM_SDK};${GOO};${ABI}"
+      - $ANDROID_SDK_ROOT/emulator/emulator -avd $EMULATOR_NAME -no-audio -no-window -gpu swiftshader &
+      - chmod +x $APPVEYOR_BUILD_FOLDER/wait-for-emulator.sh && $APPVEYOR_BUILD_FOLDER/wait-for-emulator.sh
+      - adb shell input keyevent 82
+  -
+    matrix:
+      only:
+        - job_name: Test iOS
+
+    install:
+      - export JAVA_HOME=${JAVA_HOME_8_X64}
+      - java -version
+      - export JAVA_HOME=${JAVA_HOME_8_X64}
+      - curl -o sdk-tools.zip https://dl.google.com/android/repository/${SDK_TOOLS_VERSION} && unzip sdk-tools.zip && rm sdk-tools.zip
+      - eval echo ~$USER
+      - mkdir -p $(eval echo ~$USER)/.android/ && mkdir -p $(eval echo ~$USER)/android/sdk && mv tools $(eval echo ~$USER)/android/sdk
+      - echo '### User Sources for Android SDK Manager' > $(eval echo ~$USER)/.android/repositories.cfg
+      - cd && git clone -b stable https://github.com/flutter/flutter.git
+      - export PATH=$PATH:$(eval echo ~$USER)/flutter/bin:$(eval echo ~$USER)/flutter/bin/cache/dark-sdk/bin:$ANDROID_SDK_ROOT/tools/bin
+      - echo y | sdkmanager --verbose --sdk_root=${ANDROID_SDK_ROOT} --update
+      - echo y | sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --licenses
+      - sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --list
+      - echo y |sdkmanager --sdk_root=${ANDROID_SDK_ROOT} --verbose "tools" "platform-tools" "build-tools;30.0.0" "platforms;android-30"
+      - flutter precache
+#      - flutter precache
+#      - sudo gem install cocoapods
+#      -
+    test_script:
+      - flutter doctor -v
