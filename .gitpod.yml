@@ -1,0 +1,19 @@
+image:
+  file: .gitpod.Dockerfile
+tasks:
+  - before: |
+      flutter pub get &&
+      while [ -z "$FIREBASE_CONTROL_DEBUG_KEY_STORE" ] ; do
+        printf "\n❗ The FIREBASE_CONTROL_DEBUG_KEY_STORE environment variable is required. Please enter its value.\n" &&
+        read -s -p "FIREBASE_CONTROL_DEBUG_KEY_STORE: " FIREBASE_CONTROL_DEBUG_KEY_STORE ;
+      done ; export FIREBASE_CONTROL_DEBUG_KEY_STORE=$FIREBASE_CONTROL_DEBUG_KEY_STORE && printf "\nThanks\n" && while [ -z "$FIREBASE_CONTROL_DEBUG_KEY_STORE_PASS" ] ; do
+        printf "\n❗ The FIREBASE_CONTROL_DEBUG_KEY_STORE_PASS environment variable is required. Please enter its value.\n" &&
+        read -s -p "FIREBASE_CONTROL_DEBUG_KEY_STORE_PASS: " FIREBASE_CONTROL_DEBUG_KEY_STORE_PASS ;
+      done ; export FIREBASE_CONTROL_DEBUG_KEY_STORE_PASS=$FIREBASE_CONTROL_DEBUG_KEY_STORE_PASS && printf "\nThanks\n" && while [ -z "$FIREBASE_CONTROL_DEBUG_KEY_STORE_ALIAS" ] ; do
+        printf "\n❗ The FIREBASE_CONTROL_DEBUG_KEY_STORE_ALIAS environment variable is required. Please enter its value.\n" &&
+        read -s -p "FIREBASE_CONTROL_DEBUG_KEY_STORE_ALIAS: " FIREBASE_CONTROL_DEBUG_KEY_STORE_ALIAS ;
+      done ; export FIREBASE_CONTROL_DEBUG_KEY_STORE_ALIAS=$FIREBASE_CONTROL_DEBUG_KEY_STORE_ALIAS && printf "\nThanks\n" &&
+      echo "$FIREBASE_CONTROL_DEBUG_KEY_STORE" | base64 --decode > /workspace/firebase-control-app/android/debug.keystore
+ports:
+  - port: 3000-8999
+    onOpen: ignore

@@ -1,4 +1,4 @@
-![GitHub tag (latest SemVer pre-release)](https://img.shields.io/github/v/tag/caveman280/sample-flutter-mobileci?include_prereleases&style=for-the-badge) [![Build Status](https://img.shields.io/travis/caveman280/sample-flutter-mobileci/master.svg?style=for-the-badge&label=Build:+master)](https://travis-ci.org/caveman280/sample-flutter-mobileci)
+![GitHub tag (latest SemVer pre-release)](https://img.shields.io/github/v/tag/caveman280/sample-flutter-mobileci?include_prereleases&style=for-the-badge) [![Build Status](https://img.shields.io/travis/caveman280/sample-flutter-mobileci/master?style=for-the-badge&label=Build:+master)](https://travis-ci.org/caveman280/sample-flutter-mobileci) [![Gitpod Ready-to-Code](https://img.shields.io/badge/Gitpod-Ready--to--Code-blue?style=for-the-badge&logo=gitpod)](https://gitpod.io/#https://github.com/caveman280/sample-flutter-mobileci)
 
 # Sample Flutter project with a mobileCI Twist!
 
