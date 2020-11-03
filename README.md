@@ -2,9 +2,12 @@
 
 # Sample Flutter project with a mobileCI Twist!
 
-Here lies a the sample Flutter application ready for CI with AppVeyor
+![Screenshot 0](screenshots/0.png) ![Screenshot 1](screenshots/1.png)
 
-We build this with AppVeyor with the following logic:
+Here lies a the sample Flutter application ready for CI with Travis
+
+We build this with Travis with the following logic:
+- On a pull request, run the tests and ensure that CHANGELOG.md contains an added entry to the Release section.
 
 - On merge to master with "RELEASE", run the e2e test on iOS and Android
 - Taking screenshots with Flutter Driver, commiting the results directly to master

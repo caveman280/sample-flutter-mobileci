@@ -45,7 +45,6 @@ void main() {
       // Tap on the fab 5 times
       for (var i = 0; i < 5; ++i) await driver.tap(fab);
 
-
       // Wait for text to change to the desired value
       await driver.waitFor(find.text('5'));
 

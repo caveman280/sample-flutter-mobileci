@@ -3,13 +3,12 @@ FROM gitpod/workspace-full
 USER gitpod
 
 ENV ANDROID_TOOLS=6858069
-# TODO: Bump to API Level: 29
 # The current compileSdkVersion from build.gradle
-ENV ANDROID_VERSION=28
+ENV ANDROID_VERSION=29
 ENV ANDROID_ARCHITECTURE=x86_64
 ENV GOO=google_apis_playstore
 # Depends on compileSdkVersion
-ENV ANDROID_BUILD_TOOLS_VERSION=28.0.3
+ENV ANDROID_BUILD_TOOLS_VERSION=29.0.3
 ENV ANDROID_HOME=${HOME}/android-sdk
 ENV ANDROID_SDK_ROOT=${ANDROID_HOME}
 ENV FLUTTER_CHANNEL=stable
@@ -40,7 +39,6 @@ RUN mkdir -p $ANDROID_SDK_ROOT && \
     sdkmanager "tools" > /dev/null && \
     sdkmanager "build-tools;$ANDROID_BUILD_TOOLS_VERSION" > /dev/null && \
     sdkmanager "platforms;android-$ANDROID_VERSION" && \
-    sdkmanager "platforms;android-29" && \
     sdkmanager "platform-tools" && \
     sdkmanager "extras;android;m2repository" && \
     sdkmanager "system-images;android-$ANDROID_VERSION;$GOO;$ANDROID_ARCHITECTURE" && \
