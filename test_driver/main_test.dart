@@ -9,13 +9,15 @@
 // Rules:
 // - Don't import any flutter code (e.g. material.dart)
 // - Don't import flutter_test.dart
-
+import 'dart:io';
 import 'package:flutter_driver/flutter_driver.dart';
 import 'package:test/test.dart';
 import 'package:screenshots/screenshots.dart';
 
 void main() {
   final config = Config();
+  Process screenrecordProcess;
+  Map<String, String> envVars;
 
   // We'll increment the screenshot count each time to get a unique filename.
   int screenshotCount = 0;
@@ -24,11 +26,34 @@ void main() {
     FlutterDriver driver;
 
     setUpAll(() async {
+      // Lets start our screen recording if on android
+      envVars = Platform.environment;
+      if (envVars.containsKey("APILEVEL") && envVars["APILEVEL"] == "29") {
+        // Android-specific code
+        Process.start(
+                'adb',
+                <String>[
+                  'shell',
+                  'screenrecord',
+                  '--bit-rate 2000000',
+                      '/sdcard/screenrecord.mp4'
+                ],
+                includeParentEnvironment: true,
+                mode: ProcessStartMode.detachedWithStdio)
+            .then((process) {
+          screenrecordProcess = process;
+        });
+      }
+
       // Connect to a running Flutter application instance.
       driver = await FlutterDriver.connect();
     });
 
     tearDownAll(() async {
+      if (envVars.containsKey("APILEVEL") && envVars["APILEVEL"] == "29") {
+        // Android-specific code
+        Process.killPid(screenrecordProcess.pid);
+      }
       if (driver != null) driver.close();
     });
 
