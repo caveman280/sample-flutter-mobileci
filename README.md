@@ -2,7 +2,7 @@
 
 # Sample Flutter project with a mobileCI Twist!
 
-![Screenshot 0](screenshots/0.png) ![Screenshot 1](screenshots/1.png)
+![GIF Showing the app UI](screenshots/screenrecord.gif)
 
 Here lies a the sample Flutter application ready for CI with Travis
 
