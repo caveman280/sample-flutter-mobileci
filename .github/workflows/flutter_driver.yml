@@ -1,0 +1,349 @@
+# Name of your workflow.
+name: Flutter Driver
+
+# Trigger the workflow on push or pull request.
+on:
+  push:
+    # Sequence of patterns matched against refs/heads
+    paths-ignore:
+      - "screenshots/**"
+      - "pubspec.yaml"
+    branches:
+      # Push events on main branch
+      - main
+      - master
+
+# A workflow run is made up of one or more jobs.
+jobs:
+  # id of job, a string that is unique to the "jobs" node above.
+  drive_ios:
+    name: iOS Flutter Driver
+    # Creates a build matrix for your jobs. You can define different
+    # variations of an environment to run each job in.
+    strategy:
+      # A set of different configurations of the virtual environment.
+      matrix:
+        device:
+          - "iPhone 8 (14.0)"
+          - "iPhone 11 Pro Max (14.0)"
+      # When set to true, GitHub cancels all in-progress jobs if any matrix job
+      # fails.
+      fail-fast: false
+    # The type of machine to run the job on.
+    runs-on: macOS-latest
+    # Contains a sequence of tasks.
+    steps:
+      # A name for your step to display on GitHub.
+      - name: "List all simulators"
+        run: "xcrun instruments -s"
+      - name: "Start Simulator"
+        run: |
+          UDID=$(
+            xcrun instruments -s |
+            awk \
+              -F ' *[][]' \
+              -v 'device=${{ matrix.device }}' \
+              '$1 == device { print $2 }'
+          )
+          xcrun simctl boot "${UDID:?No Simulator with this name found}"
+      # The branch or tag ref that triggered the workflow will be checked out.
+      # https://github.com/marketplace/actions/checkout
+      - uses: actions/checkout@v2
+        name: "Checkout Code"
+      # Sets up a flutter environment.
+      # https://github.com/marketplace/actions/flutter-action
+      - uses: subosito/flutter-action@v1
+        name: "Install Flutter"
+        with:
+          # Don't pin Flutter version, it'll default to latest
+          #flutter-version: '1.22.3'
+          channel: "stable" # or: 'dev' or 'beta'
+      - name: "Run Flutter Driver tests"
+        run: |
+          flutter pub get
+          flutter drive --target=test_driver/main.dart
+      - name: Upload Screenshot
+        uses: actions/upload-artifact@master
+        with:
+          name: iOS - Screenshots - ${{ matrix.device }}
+          path: /tmp/screenshots
+
+  drive_android:
+    name: Android Flutter Driver
+    # The type of machine to run the job on.
+    runs-on: macos-latest
+    # creates a build matrix for your jobs
+    strategy:
+      # set of different configurations of the virtual environment.
+      matrix:
+        api-level: [21, 29]
+        target: [default]
+      # When set to true, GitHub cancels all in-progress jobs if any matrix job
+      # fails.
+      fail-fast: false
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Install ffmpeg"
+        if: matrix.api-level == '29'
+        run: brew update && brew install ffmpeg
+      - uses: subosito/flutter-action@v1
+        with:
+          channel: "stable" # or: 'dev' or 'beta'
+      # - name: Setup tmate session
+      #   uses: mxschmitt/action-tmate@v3
+      - name: "Run Flutter Driver tests and screen record"
+        # GitHub Action for installing, configuring and running Android Emulators (work only Mac OS)
+        # https://github.com/marketplace/actions/android-emulator-runner
+        uses: reactivecircus/android-emulator-runner@v2
+        if: matrix.api-level == '29'
+        env:
+          APILEVEL: ${{ matrix.api-level }}
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          profile: Nexus 6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -writable-system
+          ## retry 3 times
+          script: |
+            flutter drive test_driver/main.dart || flutter drive test_driver/main.dart || flutter drive test_driver/main.dart
+            adb pull /sdcard/screenrecord.mp4 /tmp/screenshots
+      - name: "Run Flutter Driver tests"
+        if: matrix.api-level != '29'
+        # GitHub Action for installing, configuring and running Android Emulators (work only Mac OS)
+        # https://github.com/marketplace/actions/android-emulator-runner
+        uses: reactivecircus/android-emulator-runner@v2
+        env:
+          APILEVEL: ${{ matrix.api-level }}
+        with:
+          api-level: ${{ matrix.api-level }}
+          target: ${{ matrix.target }}
+          arch: x86_64
+          profile: Nexus 6
+          emulator-options: -no-window -gpu swiftshader_indirect -no-snapshot -noaudio -no-boot-anim -writable-system
+          ## retry 3 times
+          script: flutter drive test_driver/main.dart || flutter drive test_driver/main.dart || flutter drive test_driver/main.dart
+      - name: "Convert to GIF"
+        if: matrix.api-level == '29'
+        run: |
+          cd /tmp/screenshots
+          ffmpeg -i screenrecord.mp4 -vf "fps=10,scale=320:-1:flags=lanczos,split[s0][s1];[s0]palettegen[p];[s1][p]paletteuse" -loop 0 screenrecord.gif
+          rm screenrecord.mp4
+      - name: Upload Screenshots
+        uses: actions/upload-artifact@master
+        with:
+          name: Android - Screenshots - API Level ${{ matrix.api-level }}
+          path: /tmp/screenshots
+
+  commit_screenshots:
+    name: Commit screenshots and create tags
+    # The type of machine to run the job on.
+    runs-on: ubuntu-latest
+    needs: [drive_android, drive_ios]
+    steps:
+      - uses: actions/checkout@v2
+      - name: "Remove Old Screenshots"
+        run: if [ -d ./screenshots ]; then rm -Rf ./screenshots/*; else mkdir ./screenshots; fi
+      - uses: actions/download-artifact@v2
+        name: "Download all artifcats"
+        with:
+          path: screenshots
+      - name: "Copy GIF for README.md"
+        run: mv screenshots/Android\ -\ Screenshots\ -\ API\ Level\ 29/screenrecord.gif screenshots/
+      - name: "Version Bump"
+        id: calculate-tag
+        uses: "actions/github-script@v2"
+        with:
+          result-encoding: string
+          script: |
+            const repository = context.repo
+            const commitMessage = '${{ github.event.head_commit.message }}'
+
+            let bumpType
+
+            try {
+              let prTags = commitMessage.toLowerCase().substring(
+                  commitMessage.lastIndexOf("[") + 1,
+                  commitMessage.lastIndexOf("]")
+              )
+
+              for (const prTag of prTags.split("|")) {
+                  console.log(prTag)
+                  switch (prTag) {
+                  case 'release:major':
+                      bumpType = "major"
+                      break
+                  case 'release:minor':
+                      bumpType = "minor"
+                      break
+                  case 'release:patch':
+                      bumpType = "patch"
+                      break
+                  }
+              }
+              if (bumpType === undefined) {
+                  console.log("Bump Type not specified, assuming patch bump")
+                  bumpType = "patch"
+              }
+            } catch (Error) {
+                console.log("Bump Type not specified, assuming patch bump")
+                bumpType = "patch"
+            }
+
+            let nextTag
+
+            const tags = await github.repos.listTags({
+              owner: repository.owner,
+              repo: repository.repo
+            });
+
+            if (tags.data === undefined || tags.data.length == 0) {
+              console.log("Couldn't find any existing tags... setting to v1.0.0")
+              nextTag = "v1.0.0"
+            } else {
+              let latestTag = tags.data[0].name
+              console.log("Latest Tag is: " + latestTag)
+
+              try {
+                let regexp = /^[^0-9]*([0-9]*).([0-9]*).([0-9]*)/
+                let latestTagSplit = latestTag.match(regexp)
+
+                let majorVersion = parseInt(latestTagSplit[0])
+                let minorVersion = parseInt(latestTagSplit[1])
+                let patchVersion = parseInt(latestTagSplit[2])
+
+                switch (bumpType) {
+                  case 'major':
+                    majorVersion++
+                    break
+                  case 'minor':
+                    minorVersion++
+                    break
+                  case 'patch':
+                    patchVersion++
+                    break
+                }
+
+                let nextTag = "v" + majorVersion + "." + minorVersion + "." + patchVersion
+
+              } catch (Error) {
+                console.error("Tag didn't match the regexp... Tag was: " + latestTag + ". Failing")
+                return process.exit(1)
+              }
+            }
+
+            console.log("Calculated next tag as: " + nextTag)
+            return nextTag
+      - name: "Update Pubspec version"
+        run: |
+          sed -i "s/version:.*/versions: ${{ steps.calculate-tag.outputs.result }}/g" pubspec.yaml
+          git config --global user.email "74246085+ci-screenshot-bot@users.noreply.github.com"
+          git config --global user.name "ci-screenshot-bot"
+          git commit -im "🎉 Version Bump: ${{ steps.calculate-tag.outputs.result }}+${{ github.run_number }}" pubspec.yaml
+      - name: Commit Screenshots
+        id: cpr
+        uses: peter-evans/create-pull-request@v3
+        with:
+          commit-message: "📱 Update Screenshots"
+          branch: "update-screenshots-${{ github.run_id }}"
+          delete-branch: true
+          title: "[NO CI] Update screenshots"
+          committer: ci-screenshot-bot <74246085+ci-screenshot-bot@users.noreply.github.com>
+          author: ci-screenshot-bot <74246085+ci-screenshot-bot@users.noreply.github.com>
+          reviewers: ci-screenshot-bot
+          body: |
+            Update the screenshots
+            - Auto-generated by [create-pull-request][1]
+
+            [1]: https://github.com/peter-evans/create-pull-request
+          labels: |
+            no ci
+            automated pr
+          draft: false
+      - name: "Approve Pull Request"
+        id: latest-commit
+        uses: "actions/github-script@v2"
+        with:
+          github-token: ${{ secrets.SCREENSHOT_PA_TOKEN }}
+          script: |
+            const pullRequest = parseInt('${{ steps.cpr.outputs.pull-request-number }}')
+            const tagName = '${{ steps.calculate-tag.outputs.result }}'
+            const tagMessage = '${{ github.event.repository.name }} - ${{ steps.calculate-tag.outputs.result }}'
+            const branch = 'heads/update-screenshots-${{ github.run_id }}'
+            const repository = context.repo
+
+            console.log("Approving Pull Request #" + pullRequest)
+
+            await github.pulls.createReview({
+              owner: repository.owner,
+              repo: repository.repo,
+              pull_number: pullRequest,
+              event: 'APPROVE'
+            })
+
+            console.log("Merging Pull Request #" + pullRequest)
+
+            let pr = await github.pulls.merge({
+              merge_method: "rebase",
+              owner: repository.owner,
+              pull_number: pullRequest,
+              repo: repository.repo
+            })
+
+            console.log("Deleting screenshot branch " + branch)
+
+            await github.git.deleteRef({
+              owner: repository.owner,
+              repo: repository.repo,
+              ref: branch
+            })
+
+            return pr.data.sha
+      - name: Create Release Markdown
+        run: |
+          touch release.md
+          echo "Screenshots:" >> release.md
+          cd screenshots
+          for D in *; do [ -d "${D}" ] && echo $(urlencoded=$(python -c "import urllib, sys; print urllib.quote(\"${D}\")"); echo '<details><summary>'${D}'</summary>'$(cd "${D}/test"; for file in *; do echo '<img src="https://github.com/${{ github.repository }}/blob/${{ steps.calculate-tag.outputs.result }}/screenshots/'${urlencoded}'/test/'${file}'?raw=true" width="25%" alt="'${D}' - Screenshot '${file}'"/> '; done)'</details>' ) >> ../release.md; done
+          cd ../
+          sleep 15s
+      - name: Create Tag
+        uses: "actions/github-script@v2"
+        with:
+          github-token: ${{ secrets.SCREENSHOT_PA_TOKEN }}
+          script: |
+            const pullRequest = parseInt('${{ steps.cpr.outputs.pull-request-number }}')
+            const tagName = '${{ steps.calculate-tag.outputs.result }}'
+            const tagMessage = '${{ github.event.repository.name }} - ${{ steps.calculate-tag.outputs.result }}'
+            const commitSha = ${{ steps.latest-commit.outputs.result }}
+            const repository = context.repo
+
+            console.log("Creating new reference")
+
+            await github.git.createRef({
+              owner: repository.owner,
+              repo: repository.repo,
+              ref: "refs/tags/" + tagName,
+              sha: commitSha
+            });
+
+            console.log("Creating New Tag on commit: " + commitSha)
+            await github.git.createTag({
+              owner: repository.owner,
+              repo: repository.repo,
+              tag: tagName,
+              message: tagMessage,
+              object: commitSha,
+              type: "commit"
+            });
+      - name: Create Release
+        id: create_release
+        uses: actions/create-release@v1
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          tag_name: "${{ steps.calculate-tag.outputs.result }}"
+          release_name: "${{ github.event.repository.name }} - ${{ steps.calculate-tag.outputs.result }}"
+          body_path: release.md
+          draft: false
+          prerelease: false
